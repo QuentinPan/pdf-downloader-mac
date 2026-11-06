@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5.0">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PDF下载器">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="/static/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+<link rel="icon" href="/static/icon-192.png">
+<title>PDF 下载器</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --line:#2a2f3a;
+    --txt:#e6e9ef; --muted:#9aa3b2; --accent:#4f8cff; --accent2:#2bb673;
+    --danger:#ff5c5c; --warn:#f0b429;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+    --safe-t: env(safe-area-inset-top, 0px);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--txt);
+       -webkit-text-size-adjust:100%;overscroll-behavior-y:none}
+  button,input,textarea,select{font-family:inherit}
+
+  /* ---------- 布局：窄屏顶部导航；宽屏（iPad 横屏）左侧栏 ---------- */
+  .layout{display:flex;flex-direction:column;min-height:100%}
+
+  .brand{display:flex;align-items:center;gap:10px;padding:calc(12px + var(--safe-t)) 16px 12px;
+         border-bottom:1px solid var(--line);background:var(--panel)}
+  .brand img{width:30px;height:30px;border-radius:8px}
+  .brand h1{font-size:17px;margin:0;font-weight:600;line-height:1.1}
+  .brand .sub{font-size:11px;color:var(--muted)}
+
+  .nav{display:flex;gap:8px;padding:10px 12px;overflow-x:auto;border-bottom:1px solid var(--line);
+       background:var(--panel);scrollbar-width:none}
+  .nav::-webkit-scrollbar{display:none}
+  .nav button{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 16px;
+       border:1px solid var(--line);border-radius:12px;background:var(--panel2);color:var(--muted);
+       font-size:14px;cursor:pointer;white-space:nowrap}
+  .nav button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .nav button .ic{font-size:17px}
+
+  .main{flex:1;padding:16px 16px calc(24px + var(--safe-b));max-width:1100px;width:100%;margin:0 auto}
+
+  @media (min-width:820px){
+    .layout{flex-direction:row;align-items:stretch}
+    .brand{display:none}
+    .nav{flex-direction:column;width:240px;gap:6px;padding:calc(16px + var(--safe-t)) 14px 16px;
+         border-bottom:0;border-right:1px solid var(--line);overflow-y:auto}
+    .nav button{flex:0 0 auto;width:100%;justify-content:flex-start;min-height:48px;padding:0 14px;font-size:15px}
+    .rail-top{display:flex;align-items:center;gap:10px;padding:16px 14px;border-bottom:1px solid var(--line);margin-bottom:6px}
+    .rail-top img{width:34px;height:34px;border-radius:9px}
+    .rail-top h1{font-size:16px;margin:0;font-weight:600}
+    .main{padding:22px 28px calc(28px + var(--safe-b))}
+  }
+
+  /* ---------- 表单元素（触屏友好） ---------- */
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+  input[type=text],textarea,input[type=number]{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);
+    border-radius:12px;padding:12px 14px;font-size:16px;outline:none}
+  input:focus,textarea:focus{border-color:var(--accent)}
+  textarea{resize:vertical;min-height:110px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px}
+  .row{display:flex;gap:12px;flex-wrap:wrap}
+  .row > div{flex:1;min-width:150px}
+  .panel{display:none}
+  .panel.active{display:block;animation:fade .2s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  button.primary{margin-top:16px;width:100%;min-height:50px;background:var(--accent);color:#fff;border:0;
+       border-radius:12px;font-size:16px;font-weight:600;cursor:pointer}
+  button.primary:active{filter:brightness(.95)}
+  button.ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line);min-height:44px;
+       padding:0 18px;border-radius:12px;cursor:pointer;font-size:14px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+  .actions .primary{margin-top:0;flex:1;min-width:160px}
+
+  /* ---------- 结果卡片 ---------- */
+  .result{margin-top:16px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+  .card h3{margin:0 0 4px;font-size:15px;font-weight:600;line-height:1.4}
+  .card .meta{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .card .sum{font-size:13px;color:#c4ccd8;line-height:1.55;max-height:84px;overflow:hidden}
+  .card label.chk{display:inline-flex;align-items:center;gap:8px;color:var(--accent);font-size:14px;margin-top:10px;cursor:pointer}
+  .card input[type=checkbox]{width:20px;height:20px}
+  .log{margin-top:14px;background:#0b0d12;border:1px solid var(--line);border-radius:12px;padding:12px;
+       font-size:12.5px;color:#bcd;white-space:pre-wrap;max-height:240px;overflow:auto;
+       font-family:ui-monospace,Menlo,monospace}
+  .pill{display:inline-block;font-size:11px;padding:2px 9px;border-radius:999px;margin-left:6px}
+  .ok{background:rgba(43,182,115,.15);color:var(--accent2)}
+  .bad{background:rgba(255,92,92,.15);color:var(--danger)}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+  .hint code{background:var(--panel2);padding:1px 6px;border-radius:6px;font-size:11.5px}
+
+  .fileRow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;
+       background:var(--panel2);border:1px solid var(--line);border-radius:12px;margin-bottom:10px}
+  .fileRow .nm{font-size:14px;line-height:1.4;word-break:break-all}
+  .fileRow .sz{font-size:12px;color:var(--muted);margin-top:3px}
+  .fileBtns{display:flex;gap:6px;flex:0 0 auto}
+  .fileBtns a,.fileBtns button{min-height:40px;padding:0 12px;border-radius:10px;font-size:13px;
+       display:inline-flex;align-items:center;border:1px solid var(--line);background:var(--panel);color:var(--accent);
+       text-decoration:none;cursor:pointer}
+  .fileBtns button.share{color:var(--accent2);border-color:rgba(43,182,115,.4)}
+
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid #fff;border-top-color:transparent;
+       border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .offline{display:none;position:fixed;left:50%;transform:translateX(-50%);
+       bottom:calc(16px + var(--safe-b));background:var(--warn);color:#1a1a1a;padding:10px 16px;
+       border-radius:12px;font-size:13px;font-weight:600;z-index:50}
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- 窄屏顶部品牌 -->
+  <div class="brand">
+    <img src="/static/icon-192.png" alt="">
+    <div><h1>📄 PDF 下载器</h1><div class="sub">ArXiv · DOI · 网页抓取</div></div>
+  </div>
+
+  <!-- 导航：窄屏横滑 / 宽屏竖排侧栏 -->
+  <nav class="nav" id="nav">
+    <div class="rail-top" style="display:none">
+      <img src="/static/icon-192.png" alt=""><h1>PDF 下载器</h1>
+    </div>
+    <button class="active" data-tab="arxiv"><span class="ic">🔍</span><span>ArXiv 检索</span></button>
+    <button data-tab="doi"><span class="ic">🔗</span><span>DOI 下载</span></button>
+    <button data-tab="web"><span class="ic">🕸️</span><span>网页抓取</span></button>
+    <button data-tab="files"><span class="ic">📁</span><span>文件管理</span></button>
+  </nav>
+
+  <main class="main">
+    <label style="margin-top:0">下载目录（留空用默认：<code>~/Downloads/PDF_Downloader</code>，文件保存在运行此服务的电脑/服务器上）</label>
+    <input type="text" id="outDir" placeholder="例如 /Users/you/Downloads/PDFs">
+
+    <!-- ArXiv -->
+    <section class="panel active" id="panel-arxiv">
+      <label>关键词</label>
+      <input type="text" id="q" placeholder="例如 large language model">
+      <div class="row">
+        <div><label>分类（可选，如 cs.LG / math.PR）</label><input type="text" id="cat" placeholder="cs.LG"></div>
+        <div><label>年份（可选，如 2024）</label><input type="text" id="year" placeholder="2024"></div>
+        <div><label>数量（最多 50）</label><input type="number" id="maxr" value="10" min="1" max="50"></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="searchBtn">🔍 检索</button>
+        <button class="ghost" id="dlSelBtn" style="display:none">⬇️ 下载选中</button>
+      </div>
+      <div class="result" id="arxivResult"></div>
+      <div class="log" id="arxivLog" style="display:none"></div>
+    </section>
+
+    <!-- DOI -->
+    <section class="panel" id="panel-doi">
+      <label>粘贴 DOI 或 arXiv ID（每行 / 逗号 / 空格分隔均可）</label>
+      <textarea id="dois" placeholder="10.48550/arXiv.2207.03928
+10.1038/s41586-021-03819-2
+arXiv:1706.03762"></textarea>
+      <div class="actions">
+        <button class="primary" id="doiBtn">⬇️ 解析并下载</button>
+      </div>
+      <div class="result" id="doiResult"></div>
+      <div class="log" id="doiLog" style="display:none"></div>
+    </section>
+
+    <!-- Web -->
+    <section class="panel" id="panel-web">
+      <label>网页 URL（会抓取该页所有 PDF 链接）</label>
+      <input type="text" id="webUrl" placeholder="https://arxiv.org/list/cs.LG/recent">
+      <div class="actions">
+        <button class="primary" id="webBtn">🕸️ 抓取并下载</button>
+      </div>
+      <div class="result" id="webResult"></div>
+      <div class="log" id="webLog" style="display:none"></div>
+    </section>
+
+    <!-- Files -->
+    <section class="panel" id="panel-files">
+      <div class="actions">
+        <button class="ghost" id="refreshBtn">🔄 刷新列表</button>
+      </div>
+      <div class="result" id="filesResult"></div>
+      <div class="hint">提示：在 iPad 上点「打开」可在 Safari 内预览 PDF，长按或点「分享」可存到「文件」App、图书，或 AirDrop 到其他设备。</div>
+    </section>
+  </main>
+</div>
+
+<div class="offline" id="offline">📡 当前离线，已为你缓存界面</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const api = (path, body) => fetch(path, {
+  method:'POST', headers:{'Content-Type':'application/json'},
+  body: JSON.stringify(body)
+}).then(r => r.json());
+
+const outDir = () => $('#outDir').value.trim();
+function updBadge(){ /* 占位，保持兼容 */ }
+$('#outDir').addEventListener('input', updBadge);
+
+// 宽屏时显示侧栏顶部的品牌块
+if (window.matchMedia('(min-width:820px)').matches) {
+  const rt = document.querySelector('.rail-top'); if (rt) rt.style.display = 'flex';
+}
+
+// 导航切换
+document.querySelectorAll('#nav button[data-tab]').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('#nav button').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    $('#panel-'+t.dataset.tab).classList.add('active');
+    if(t.dataset.tab==='files') refreshFiles();
+  });
+});
+
+function log(el, msg){ el.style.display='block'; el.textContent += msg + "\n"; el.scrollTop = el.scrollHeight; }
+function spin(btn){ const t=btn.textContent; btn.disabled=true; btn.innerHTML='<span class="spinner"></span>'+t; return ()=>{btn.disabled=false;btn.textContent=t;}; }
+const esc = s => (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- ArXiv ----------
+const selected = new Set();
+$('#searchBtn').onclick = async () => {
+  const stop = spin($('#searchBtn'));
+  const box = $('#arxivResult'); box.innerHTML=''; selected.clear();
+  $('#dlSelBtn').style.display='none';
+  try{
+    const res = await api('/api/search', {
+      query:$('#q').value.trim(), cat:$('#cat').value.trim(),
+      year:$('#year').value.trim(), max_results:+$('#maxr').value||10
+    });
+    if(!res.ok){ box.innerHTML='<div class="card">检索失败：'+esc(res.error)+'</div>'; return; }
+    if(!res.results.length){ box.innerHTML='<div class="card">没有结果，换个关键词试试。</div>'; return; }
+    res.results.forEach(r=>{
+      const div = document.createElement('div');
+      div.className='card';
+      div.innerHTML = `<h3>${esc(r.title)}</h3>
+        <div class="meta">${esc(r.authors)} · ${esc(r.published)} · <a href="${r.pdf_url}" target="_blank" style="color:var(--accent)">PDF 直链</a></div>
+        <div class="sum">${esc(r.summary)}</div>
+        <label class="chk"><input type="checkbox"> 选择下载</label>`;
+      div.querySelector('input').addEventListener('change',e=>{
+        const key = JSON.stringify({pdf_url:r.pdf_url,id:r.id,title:r.title});
+        if(e.target.checked) selected.add(key); else selected.delete(key);
+        $('#dlSelBtn').style.display = selected.size? 'inline-block':'none';
+      });
+      box.appendChild(div);
+    });
+  }catch(e){ box.innerHTML='<div class="card">出错：'+esc(e)+'</div>'; }
+  finally{ stop(); }
+};
+
+$('#dlSelBtn').onclick = async () => {
+  const stop = spin($('#dlSelBtn'));
+  const logEl = $('#arxivLog'); logEl.textContent='';
+  const items = [...selected].map(s=>JSON.parse(s));
+  const res = await api('/api/download_arxiv', {items, out_dir:outDir()});
+  log(logEl, `已下载 ${res.downloaded.length} 篇 → ${res.out_dir}`);
+  res.downloaded.forEach(d=> log(logEl, '  ✓ '+d.title));
+  res.failed.forEach(d=> log(logEl, '  ✗ 失败: '+d.title));
+  stop();
+};
+
+// ---------- DOI ----------
+$('#doiBtn').onclick = async () => {
+  const stop = spin($('#doiBtn'));
+  const logEl = $('#doiLog'); logEl.textContent='';
+  const res = await api('/api/doi', {dois:$('#dois').value, out_dir:outDir()});
+  let html='';
+  (res.downloaded||[]).forEach(d=> html+=`<div class="card"><h3>${esc(d.id)}</h3><span class="pill ok">已下载 ${esc(d.file)}</span></div>`);
+  (res.failed||[]).forEach(d=> html+=`<div class="card"><h3>${esc(d.id)}</h3><span class="pill bad">${esc(d.reason||'失败')}</span></div>`);
+  $('#doiResult').innerHTML = html || '<div class="card">无可处理项</div>';
+  log(logEl, `成功 ${res.downloaded.length} · 失败 ${res.failed.length} → ${res.out_dir}`);
+  stop();
+};
+
+// ---------- Web ----------
+$('#webBtn').onclick = async () => {
+  const stop = spin($('#webBtn'));
+  const logEl = $('#webLog'); logEl.textContent='';
+  const res = await api('/api/scrape', {url:$('#webUrl').value.trim(), out_dir:outDir()});
+  if(!res.ok){ $('#webResult').innerHTML='<div class="card">'+esc(res.error)+'</div>'; stop(); return; }
+  let html=`<div class="card">共发现 ${res.found.length} 个 PDF 链接，下载 ${res.downloaded.length} 个，失败 ${res.failed.length} 个。</div>`;
+  res.downloaded.forEach(d=> html+=`<div class="card"><h3>${esc(d.file)}</h3><a href="${d.url}" target="_blank" style="color:var(--accent);font-size:12px">来源</a></div>`);
+  $('#webResult').innerHTML = html;
+  log(logEl, `保存至 ${res.out_dir}`);
+  stop();
+};
+
+// ---------- Files ----------
+function fileUrl(name, out, inline){
+  return `/api/file/${encodeURIComponent(name)}?out_dir=${encodeURIComponent(out)}${inline?'&inline=1':''}`;
+}
+async function refreshFiles(){
+  const res = await api('/api/files', {out_dir:outDir()});
+  const box = $('#filesResult');
+  if(!res.files.length){ box.innerHTML='<div class="card">暂无文件。</div>'; return; }
+  box.innerHTML = res.files.map(f=>`
+    <div class="fileRow">
+      <div>
+        <div class="nm">📄 ${esc(f.name)}</div>
+        <div class="sz">${f.size_kb} KB</div>
+      </div>
+      <div class="fileBtns">
+        <a href="${fileUrl(f.name, res.out_dir, true)}" target="_blank">打开</a>
+        <a href="${fileUrl(f.name, res.out_dir, false)}">下载</a>
+        <button class="share" data-name="${esc(f.name)}" data-out="${esc(res.out_dir)}">分享</button>
+      </div>
+    </div>`).join('');
+  box.querySelectorAll('button.share').forEach(b=>{
+    b.onclick = ()=> shareFile(b.dataset.name, b.dataset.out);
+  });
+}
+
+async function shareFile(name, out){
+  try{
+    const res = await fetch(fileUrl(name, out, true));
+    const blob = await res.blob();
+    const file = new File([blob], name, {type:'application/pdf'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:name});
+    } else if(navigator.share){
+      await navigator.share({title:name, url:location.href});
+    } else {
+      alert('当前浏览器不支持系统分享，请长按文件选择「存储到文件」。');
+    }
+  }catch(e){ /* 用户取消分享 */ }
+}
+$('#refreshBtn').onclick = refreshFiles;
+
+// ---------- PWA：注册 Service Worker（HTTPS 环境下生效，失败静默忽略） ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  });
+  window.addEventListener('offline', ()=>{ $('#offline').style.display='block'; });
+  window.addEventListener('online', ()=>{ $('#offline').style.display='none'; });
+}
+</script>
+</body>
+</html>

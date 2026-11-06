@@ -1,0 +1,16 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# 下载产物（由用户运行时产生，不应进仓库）
+Downloads/
+PDF_Downloader/
+
+# 系统
+.DS_Store
+*.log

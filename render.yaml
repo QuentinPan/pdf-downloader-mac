@@ -1,0 +1,14 @@
+# Render.com 一键部署配置（免费版）
+# 用法：把本仓库推到 GitHub，在 Render 新建「Blueprint」并关联仓库即可。
+# 部署后获得一个公网 HTTPS 地址，iPad 在任意网络下都能访问。
+# 注意：Render 会自动注入 $PORT 环境变量，app.py 已读取该变量，无需手动指定端口。
+services:
+  - type: web
+    name: pdf-downloader
+    runtime: python
+    plan: free
+    region: oregon      # 可选：singapore / frankfurt ...
+    buildCommand: pip install -r requirements.txt
+    # -u 关闭 stdout 缓冲，确保启动日志（含局域网地址）能在 Render 日志里看到
+    startCommand: python -u app.py --host 0.0.0.0
+    healthCheckPath: /

@@ -1,0 +1,5 @@
+flask>=3.0
+arxiv>=1.4
+requests>=2.31
+beautifulsoup4>=4.12
+waitress>=2.1
